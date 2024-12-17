@@ -1,0 +1,157 @@
+.admin-sidebar {
+    background: linear-gradient(135deg, rgba(9, 132, 227, 0.9), rgba(45, 52, 54, 0.9));
+    color: #fff;
+    width: 260px;
+    height: 100vh;
+    padding: 1.5rem 1rem;
+    position: fixed;
+    left: 0;
+    top: 0;
+    box-shadow: 4px 0 10px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+}
+
+.admin-logo {
+    padding: 1rem;
+    margin-bottom: 2rem;
+    text-align: center;
+    border-bottom: 1px solid rgba(20, 51, 87, 0.1);
+}
+
+.admin-logo h2 {
+    color: #fff;
+    font-size: 1.6rem;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.admin-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0 0.5rem;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    padding: 0.9rem 1.2rem;
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.menu-item:before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 0;
+    background: rgba(255, 255, 255, 0.1);
+    transition: width 0.3s ease;
+}
+
+.menu-item:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(5px);
+}
+
+.menu-item:hover:before {
+    width: 100%;
+}
+
+.menu-item i {
+    width: 24px;
+    margin-right: 12px;
+    text-align: center;
+    font-size: 1.1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.menu-item:hover i {
+    transform: scale(1.1);
+    transition: transform 0.3s ease;
+}
+
+/* Active state */
+.menu-item.active {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-weight: 500;
+}
+
+.menu-item.active i {
+    color: #64b5f6;
+}
+
+/* Ensure dashboard content doesn't overlap with sidebar */
+.admin-content {
+    margin-left: 260px;
+    padding: 20px;
+    min-height: 100vh;
+    background: #f5f6fa;
+    position: relative;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .admin-sidebar {
+        width: 70px;
+        padding: 1rem 0.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .admin-logo h2 {
+        display: none;
+    }
+
+    .menu-item {
+        padding: 0.8rem;
+        justify-content: center;
+        border-radius: 8px;
+    }
+
+    .menu-item i {
+        margin: 0;
+        font-size: 1.3rem;
+    }
+
+    .menu-item:hover {
+        transform: translateX(0) scale(1.1);
+    }
+
+    .menu-item:not(i) {
+        font-size: 0;
+    }
+
+    .admin-content {
+        margin-left: 70px;
+    }
+}
+
+/* Hover tooltip for mobile */
+@media (max-width: 768px) {
+    .menu-item:hover::after {
+        content: attr(data-title);
+        position: absolute;
+        left: 100%;
+        top: 50%;
+        transform: translateY(-50%);
+        background: #1a237e;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        z-index: 1000;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+} 
