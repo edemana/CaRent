@@ -3,300 +3,179 @@ session_start();
 require_once '../php/config.php';
 
 // Check if user is logged in and is admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
     header('Location: ../index.php');
     exit;
 }
 
-// Get all users except current admin
-$sql = "SELECT 
-            User_id,
-            CONCAT(Fname, ' ', Lname) as full_name,
-            Email,
-            Phone,
-            Role,
-            (SELECT COUNT(*) FROM bookings WHERE user_id = users.User_id) as total_bookings
-        FROM users 
-        WHERE User_id != ?
-        ORDER BY User_id DESC";
+// Get users list
+$stmt = $conn->prepare("
+        SELECT 
+            u.User_id,
+            CONCAT(u.Fname, ' ', u.Lname) as full_name,
+            u.Email,
+            u.Phone,
+            u.Role,
+            COUNT(b.id) as total_bookings
+        FROM users u
+        LEFT JOIN bookings b ON u.User_id = b.user_id
+        WHERE u.User_id != ?
+        GROUP BY u.User_id, u.Fname, u.Lname, u.Email, u.Phone, u.Role
+        ORDER BY u.User_id DESC
+    ");
 
-$stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $_SESSION['user_id']);
 $stmt->execute();
 $result = $stmt->get_result();
-$users = [];
-while ($row = $result->fetch_assoc()) {
-    $users[] = $row;
+$users = $result->fetch_all(MYSQLI_ASSOC);
+
+// Get total users count (excluding current admin)
+$userCount = 0;
+$sql = "SELECT COUNT(*) as count FROM users WHERE Role = 'customer' AND User_id != " . $_SESSION['user_id'];
+$result = $conn->query($sql);
+if ($result) {
+    $userCount = $result->fetch_assoc()['count'];
 }
+
+// Get active users (users with active bookings)
+$activeUsers = 0;
+$sql = "SELECT COUNT(DISTINCT u.User_id) as count 
+        FROM users u 
+        INNER JOIN bookings b ON u.User_id = b.user_id 
+        WHERE b.status = 'active'";
+$result = $conn->query($sql);
+if ($result) {
+    $activeUsers = $result->fetch_assoc()['count'];
+}
+
+// Get new users this month
+$newUsers = 0;
+$firstDayOfMonth = date('Y-m-01');
+$sql = "SELECT COUNT(*) as count 
+        FROM users 
+        WHERE Role = 'customer' 
+        AND User_id != " . $_SESSION['user_id'] . "
+        AND created_at >= '" . $firstDayOfMonth . "'";
+$result = $conn->query($sql);
+if ($result) {
+    $newUsers = $result->fetch_assoc()['count'];
+}
+
+// For debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// Debug information
+$debug = [
+    'total_users' => $userCount,
+    'active_users' => $activeUsers,
+    'new_users' => $newUsers,
+    'total_rows' => count($users),
+    'last_sql_error' => $conn->error,
+    'session_user_id' => $_SESSION['user_id']
+];
+
+// Add debug output to the page
+echo "<!-- Debug Info: " . json_encode($debug) . " -->";
+
+$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Users - Admin Dashboard</title>
+    <title>Manage Users - CarRent Admin</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/admin.css">
+    <link rel="stylesheet" href="css/sidebar.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        :root {
-            --primary-color: #0984e3;
-            --secondary-color: #2d3436;
-            --accent-color: #00b894;
-            --background-color: #f5f6fa;
-            --dark-color: #2d3436;
-            --light-color: #ffffff;
-            --gradient-start: #e8f4f8;
-            --gradient-end: #f5f6fa;
+        .user-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
         }
 
-        body {
-            background: var(--gradient-start);
-            background-image: 
-                linear-gradient(120deg, var(--gradient-start), var(--gradient-end)),
-                url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3z' fill='%230984e3' fill-opacity='0.03' fill-rule='evenodd'/%3E%3C/svg%3E");
-            background-attachment: fixed;
-            min-height: 100vh;
-            color: var(--dark-color);
-        }
-
-        .admin-container {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 249, 250, 0.9));
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            
-        }
-
-        .card {
-            background: linear-gradient(135deg, #ffffff, #f8f9fa);
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-            margin: 15px;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
-        }
-
-        .table-container {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 249, 250, 0.95));
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            margin: 20px 0;
-        }
-
-        .table {
-            background: linear-gradient(135deg, #ffffff, #f8f9fa);
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .table thead th {
-            background: linear-gradient(135deg, var(--primary-color), #0770c2);
-            color: white;
-            border: none;
-            padding: 15px;
-        }
-
-        .table tbody tr:nth-child(even) {
-            background: rgba(248, 249, 250, 0.5);
-        }
-
-        .table tbody tr:hover {
-            background: rgba(9, 132, 227, 0.05);
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary-color), #0770c2);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .btn-primary:hover {
-            background: linear-gradient(135deg, #0770c2, #065a9e);
-            transform: translateY(-2px);
-        }
-
-        .modal-content {
-            background: linear-gradient(135deg, #ffffff, #f8f9fa);
-            border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-        }
-
-        .form-control {
-            background: linear-gradient(135deg, #ffffff, #f8f9fa);
-            border: 1px solid #e1e8ed;
-            border-radius: 8px;
-            padding: 10px 15px;
-            transition: all 0.3s ease;
-        }
-
-        .form-control:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(9, 132, 227, 0.1);
-            outline: none;
-        }
-
-        ::-webkit-scrollbar {
-            display: none;
-        }
-        .table-container {
-            background: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
+        .stat-card {
+            background: white;
             padding: 1.5rem;
-            margin: 1rem 0;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
-        .data-table {
+        .stat-card h3 {
+            margin: 0 0 0.5rem 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .stat-card p {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .users-table {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-top: 2rem;
+        }
+
+        table {
             width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            border-collapse: collapse;
         }
 
-        .data-table thead th {
-            background: #f8f9fa;
-            color: #2d3436;
-            font-weight: 600;
+        th, td {
             padding: 1rem;
-            text-transform: uppercase;
-            font-size: 0.85rem;
-            letter-spacing: 0.5px;
-            border-bottom: 2px solid #e9ecef;
             text-align: left;
+            border-bottom: 1px solid #eee;
         }
 
-        .data-table tbody tr {
-            transition: all 0.2s ease-in-out;
-            border-bottom: 1px solid #f1f3f5;
-        }
-
-        .data-table tbody tr:hover {
-            background-color: #f8f9fa;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.04);
-        }
-
-        .data-table td {
-            padding: 1rem;
-            vertical-align: middle;
-            color: #4a4a4a;
-            font-size: 0.95rem;
-        }
-
-        .data-table td:first-child {
+        th {
             font-weight: 600;
-            color: #2d3436;
+            color: #666;
         }
 
         .role-badge {
-            padding: 0.4rem 1rem;
-            border-radius: 50px;
-            font-size: 0.8rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
             font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.7px;
-            display: inline-block;
-            text-align: center;
         }
-        .logout-btn {
-    padding: 0.5rem 1rem;
-    background-color: #e74c3c;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    text-decoration: none;
-    font-weight: 500;
-    transition: all 0.3s ease;
-}
 
-.logout-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
-}
         .role-badge.admin {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5253 100%);
-            color: white;
-            box-shadow: 0 2px 4px rgba(238, 82, 83, 0.2);
+            background-color: #e3fcef;
+            color: #00b894;
         }
 
         .role-badge.user {
-            background: linear-gradient(135deg, #26de81 0%, #20bf6b 100%);
-            color: white;
-            box-shadow: 0 2px 4px rgba(32, 191, 107, 0.2);
+            background-color: #fff3bf;
+            color: #f39c12;
         }
 
-        .action-btn.small {
-            width: 35px;
-            height: 35px;
-            padding: 0;
-            border-radius: 8px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 0.3rem;
+        .action-btn {
+            padding: 0.5rem;
             border: none;
+            background: none;
             cursor: pointer;
-            transition: all 0.2s ease;
-            background: #f8f9fa;
+            color: var(--primary-color);
+            transition: transform 0.3s ease;
         }
 
-        .action-btn.small i {
-            font-size: 0.9rem;
-            color: #2d3436;
+        .action-btn:hover {
+            transform: scale(1.1);
         }
 
-        .action-btn.small:hover {
-            transform: translateY(-2px);
+        .action-btn.danger {
+            color: #e74c3c;
         }
 
-        .action-btn.danger:hover {
-            background: #fff5f5;
-        }
-
-        .action-btn.danger:hover i {
-            color: #ff6b6b;
-        }
-
-        .filters {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            align-items: center;
-        }
-
-        .filters select,
-        .filters input {
-            padding: 8px 12px;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            min-width: 200px;
-            background: white;
-        }
-
-        .filters select:focus,
-        .filters input:focus {
-            outline: none;
-            border-color: #0984e3;
-            box-shadow: 0 0 0 2px rgba(9, 132, 227, 0.1);
-        }
-
-        
         .modal {
             display: none;
             position: fixed;
@@ -304,128 +183,123 @@ while ($row = $result->fetch_assoc()) {
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 1050;
-            overflow-y: auto;
-            padding: 20px;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
         }
 
         .modal-content {
-            background-color: #fff;
-            max-width: 700px;
+            background: white;
+            margin: 10% auto;
+            padding: 2rem;
             width: 90%;
-            margin: 30px auto;
-            padding: 25px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            max-width: 500px;
+            border-radius: 10px;
             position: relative;
-            max-height: calc(100vh - 60px);
-            overflow-y: auto;
         }
 
         .close {
             position: absolute;
-            right: 20px;
-            top: 15px;
-            font-size: 24px;
+            right: 1rem;
+            top: 1rem;
+            font-size: 1.5rem;
             cursor: pointer;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
             color: #666;
-            transition: color 0.3s ease;
         }
 
-        .close:hover {
-            color: #000;
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
         }
 
-        #modalTitle {
-            margin-top: 0;
-            margin-bottom: 20px;
-            padding-right: 30px;
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
         }
 
         @media (max-width: 768px) {
-            .data-table {
-                display: block;
+            .user-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .users-table {
                 overflow-x: auto;
-                white-space: nowrap;
-                -webkit-overflow-scrolling: touch;
             }
-            
-            .data-table thead th {
-                padding: 0.8rem;
-                font-size: 0.8rem;
-            }
-            
-            .data-table td {
-                padding: 0.8rem;
-                font-size: 0.9rem;
-            }
-            
-            .role-badge {
-                padding: 0.3rem 0.8rem;
-                font-size: 0.75rem;
-            }
-
-            .filters {
-                flex-direction: column;
-            }
-            
-            .filters select,
-            .filters input {
-                width: 100%;
-            }
-        }
-
-        .data-table tbody:empty::after {
-            content: "No users found";
-            display: block;
-            text-align: center;
-            padding: 2rem;
-            color: #a0a0a0;
-            font-style: italic;
         }
     </style>
 </head>
 <body>
     <div class="admin-container">
         <?php include 'includes/sidebar.php'; ?>
-        
+
         <main class="admin-main">
             <header class="admin-header">
                 <h1>Manage Users</h1>
-                <div class="admin-profile">
-                    <span>Welcome, <?php echo htmlspecialchars($_SESSION['user_name']); ?></span>
-                    <a href="../php/logout.php" class="logout-btn">Logout</a>
-                </div>
+                <a href="../php/logout.php" class="logout-btn">Logout</a>
             </header>
 
-            <div class="content-section">
-                <div class="filters">
-                    <select id="roleFilter">
-                        <option value="">All Roles</option>
-                        <option value="user">User</option>
-                        <option value="admin">Admin</option>
-                    </select>
-                    <input type="text" id="searchInput" placeholder="Search by name or email...">
+            <div class="user-stats">
+                <div class="stat-card">
+                    <h3>Total Users</h3>
+                    <p><?php echo $userCount; ?></p>
+                </div>
+                <div class="stat-card">
+                    <h3>Active Users</h3>
+                    <p><?php echo $activeUsers; ?></p>
+                </div>
+                <div class="stat-card">
+                    <h3>New Users This Month</h3>
+                    <p><?php echo $newUsers; ?></p>
+                </div>
+            </div>
+
+            <div class="users-table">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h2>Users List</h2>
+                    <button onclick="showAddUserModal()" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Add User
+                    </button>
                 </div>
 
-                <div class="table-container">
-                    <table class="data-table">
+                <div style="overflow-x: auto;">
+                    <table>
                         <thead>
                             <tr>
-                                <th>ID</th>
                                 <th>Name</th>
                                 <th>Email</th>
                                 <th>Phone</th>
                                 <th>Role</th>
-                                <th>Total Bookings</th>
+                                <th>Bookings</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach ($users as $user): ?>
                                 <tr>
-                                    <td>#<?php echo htmlspecialchars($user['User_id']); ?></td>
                                     <td><?php echo htmlspecialchars($user['full_name']); ?></td>
                                     <td><?php echo htmlspecialchars($user['Email']); ?></td>
                                     <td><?php echo htmlspecialchars($user['Phone'] ?? 'N/A'); ?></td>
@@ -451,151 +325,222 @@ while ($row = $result->fetch_assoc()) {
                     </table>
                 </div>
             </div>
+
+            <!-- Add User Modal -->
+            <div id="addModal" class="modal">
+                <div class="modal-content">
+                    <span class="close" onclick="closeModal('addModal')">&times;</span>
+                    <h2>Add New User</h2>
+                    <form id="addUserForm" onsubmit="return addUser(event)">
+                        <div class="form-group">
+                            <label for="name">Full Name</label>
+                            <input type="text" id="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email</label>
+                            <input type="email" id="email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="phone">Phone</label>
+                            <input type="tel" id="phone">
+                        </div>
+                        <div class="form-group">
+                            <label for="role">Role</label>
+                            <select id="role" required>
+                                <option value="customer">Customer</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" required>
+                        </div>
+                        <div style="text-align: right;">
+                            <button type="submit" class="btn btn-primary">Add User</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Edit User Modal -->
+            <div id="editModal" class="modal">
+                <div class="modal-content">
+                    <span class="close" onclick="closeModal('editModal')">&times;</span>
+                    <h2>Edit User</h2>
+                    <form id="editUserForm" onsubmit="return updateUser(event)">
+                        <input type="hidden" id="editUserId">
+                        <div class="form-group">
+                            <label for="editName">Full Name</label>
+                            <input type="text" id="editName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editEmail">Email</label>
+                            <input type="email" id="editEmail" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editPhone">Phone</label>
+                            <input type="tel" id="editPhone">
+                        </div>
+                        <div class="form-group">
+                            <label for="editRole">Role</label>
+                            <select id="editRole" required>
+                                <option value="customer">Customer</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div style="text-align: right;">
+                            <button type="submit" class="btn btn-primary">Update User</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </main>
     </div>
 
-    <!-- Edit User Modal -->
-    <div id="editModal" class="modal">
-        <div class="modal-content">
-            <h2>Edit User</h2>
-            <form id="editUserForm">
-                <input type="hidden" id="editUserId">
-                <div class="form-group">
-                    <label for="editName">Name</label>
-                    <input type="text" id="editName" required>
-                </div>
-                <div class="form-group">
-                    <label for="editEmail">Email</label>
-                    <input type="email" id="editEmail" required>
-                </div>
-                <div class="form-group">
-                    <label for="editPhone">Phone</label>
-                    <input type="tel" id="editPhone">
-                </div>
-                <div class="form-group">
-                    <label for="editRole">Role</label>
-                    <select id="editRole">
-                        <option value="customer">Customer</option>
-                        <option value="admin">Admin</option>
-                    </select>
-                </div>
-                <div class="form-actions">
-                    <button type="button" onclick="closeModal()">Cancel</button>
-                    <button type="submit">Save Changes</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <script>
-        // Filter users by role
-        document.getElementById('roleFilter').addEventListener('change', function() {
-            filterUsers();
-        });
-
-        // Search functionality
-        document.getElementById('searchInput').addEventListener('input', function() {
-            filterUsers();
-        });
-
-        function filterUsers() {
-            const role = document.getElementById('roleFilter').value.toLowerCase();
-            const search = document.getElementById('searchInput').value.toLowerCase();
-            const rows = document.querySelectorAll('.data-table tbody tr');
-
-            rows.forEach(row => {
-                const roleCell = row.querySelector('.role-badge').textContent.toLowerCase();
-                const nameCell = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
-                const emailCell = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
-
-                const roleMatch = !role || roleCell.includes(role);
-                const searchMatch = !search || 
-                    nameCell.includes(search) || 
-                    emailCell.includes(search);
-
-                row.style.display = roleMatch && searchMatch ? '' : 'none';
-            });
+        function showAddUserModal() {
+            document.getElementById('addModal').style.display = 'block';
         }
 
-        function editUser(userId) {
-            // Fetch user details and populate modal
-            fetch(`../php/admin/get_user.php?id=${userId}`)
-                .then(response => response.json())
-                .then(user => {
-                    document.getElementById('editUserId').value = user.User_id;
-                    document.getElementById('editName').value = `${user.Fname} ${user.Lname}`.trim();
-                    document.getElementById('editEmail').value = user.Email;
-                    document.getElementById('editPhone').value = user.Phone || '';
-                    document.getElementById('editRole').value = user.Role.toLowerCase();
-                    
-                    document.getElementById('editModal').style.display = 'block';
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Failed to load user details');
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        async function addUser(event) {
+            event.preventDefault();
+            const formData = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                phone: document.getElementById('phone').value,
+                role: document.getElementById('role').value,
+                password: document.getElementById('password').value
+            };
+
+            try {
+                const response = await fetch('../php/admin/add_user.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
                 });
+
+                const result = await response.json();
+                if (result.success) {
+                    alert('User added successfully');
+                    location.reload();
+                } else {
+                    alert(result.error || 'Failed to add user');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while adding the user');
+            }
         }
 
-        function closeModal() {
-            document.getElementById('editModal').style.display = 'none';
+        async function editUser(userId) {
+            try {
+                const response = await fetch(`../php/admin/get_user.php?id=${userId}`);
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch user data');
+                }
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.message || 'Failed to load user data');
+                }
+
+                const user = result.data;
+                document.getElementById('editUserId').value = user.User_id;
+                document.getElementById('editName').value = `${user.Fname} ${user.Lname}`.trim();
+                document.getElementById('editEmail').value = user.Email;
+                document.getElementById('editPhone').value = user.Phone || '';
+                document.getElementById('editRole').value = user.Role.toLowerCase();
+                
+                document.getElementById('editModal').style.display = 'block';
+            } catch (error) {
+                console.error('Error:', error);
+                alert(error.message || 'Failed to load user data');
+            }
         }
 
-        document.getElementById('editUserForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const data = {
-                id: document.getElementById('editUserId').value,
-                name: document.getElementById('editName').value,
+        async function updateUser(event) {
+            event.preventDefault();
+            const userId = document.getElementById('editUserId').value;
+            const [firstName, ...lastNameParts] = document.getElementById('editName').value.split(' ');
+            const lastName = lastNameParts.join(' ');
+
+            const formData = {
+                firstName: firstName,
+                lastName: lastName || '',
                 email: document.getElementById('editEmail').value,
                 phone: document.getElementById('editPhone').value,
                 role: document.getElementById('editRole').value
             };
 
-            console.log('Sending data:', data); // Debug log
-
-            fetch('../php/admin/update_user.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => response.json())
-            .then(result => {
-                if (result.success) {
-                    alert('User updated successfully!');
-                    location.reload();
-                } else {
-                    alert(result.message || 'Failed to update user');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to update user. Check console for details.');
-            });
-        });
-
-        function deleteUser(userId) {
-            if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-                fetch('../php/admin/delete_user.php', {
+            try {
+                const response = await fetch(`../php/admin/update_user.php`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ id: userId })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
+                    body: JSON.stringify({
+                        id: userId,
+                        ...formData
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const result = await response.json();
+                if (result.success) {
+                    alert('User updated successfully');
+                    location.reload();
+                } else {
+                    throw new Error(result.message || 'Failed to update user');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert(error.message || 'An error occurred while updating the user');
+            }
+        }
+
+        async function deleteUser(userId) {
+            if (confirm('Are you sure you want to delete this user?')) {
+                try {
+                    const response = await fetch(`../php/admin/delete_user.php`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ id: userId })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+
+                    const result = await response.json();
+                    if (result.success) {
+                        alert('User deleted successfully');
                         location.reload();
                     } else {
-                        alert(data.message || 'Failed to delete user');
+                        alert(result.message || 'Failed to delete user');
                     }
-                })
-                .catch(error => {
+                } catch (error) {
                     console.error('Error:', error);
-                    alert('An error occurred. Please try again.');
-                });
+                    alert('An error occurred while deleting the user');
+                }
+            }
+        }
+
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            if (event.target.className === 'modal') {
+                event.target.style.display = 'none';
             }
         }
     </script>

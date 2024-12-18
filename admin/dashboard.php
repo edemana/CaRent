@@ -2,8 +2,14 @@
 session_start();
 require_once '../php/config.php';
 
+// Debug logging
+error_log('Session data: ' . print_r($_SESSION, true));
+error_log('User type: ' . (isset($_SESSION['user_type']) ? $_SESSION['user_type'] : 'not set'));
+
 // Check if user is logged in and is admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
+    error_log('Access denied: user_id=' . (isset($_SESSION['user_id']) ? $_SESSION['user_id'] : 'not set') . 
+              ', user_type=' . (isset($_SESSION['user_type']) ? $_SESSION['user_type'] : 'not set'));
     header('Location: ../index.php');
     exit;
 }
@@ -54,6 +60,7 @@ if ($result) {
     <title>Admin Dashboard - CarRent</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/admin.css">
+    <link rel="stylesheet" href="css/sidebar.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <style>
@@ -74,7 +81,7 @@ if ($result) {
 }
 </style>
 <body>
-    <div class="admin-container">
+        
         <?php include 'includes/sidebar.php'; ?>
 
         <div class="admin-content">
@@ -167,6 +174,14 @@ if ($result) {
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             loadRecentBookings();
+
+            // Mobile sidebar toggle
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebar = document.querySelector('.admin-sidebar');
+            
+            sidebarToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('active');
+            });
         });
 
         async function loadRecentBookings() {

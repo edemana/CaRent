@@ -1,8 +1,16 @@
+<?php
+// Get the current directory depth relative to root
+$currentPath = $_SERVER['PHP_SELF'];
+$rootPath = "";
+if (strpos($currentPath, '/admin/') !== false || strpos($currentPath, '/user/') !== false) {
+    $rootPath = "../";
+} 
+?>
 <style>
     ::-webkit-scrollbar {
         display: none;
     }
-    .navbar {
+     .navbar {
         font: normal 500 1rem 'Poppins', sans-serif;
         background: rgba(255, 255, 255, 0.95);
         padding: 1rem 2rem;
@@ -105,30 +113,38 @@
         .nav-links {
             display: none;
         }
-    }
+    } 
 </style>
 <nav class="navbar">
-    <div class="logo">CarRent</div>
+    <a href="<?php echo $rootPath; ?>index.php" class="logo">CarRent</a>
     <div class="nav-links">
-        <a href="../index.php" class="active">Home</a>
-        <a href="../cars.php">Cars</a>
-        <a href="../about.php">About</a>
-        <a href="../contact.php">Contact</a>
+        <a href="<?php echo $rootPath; ?>index.php">Home</a>
+        <a href="<?php echo $rootPath; ?>cars.php">Cars</a>
+        <a href="<?php echo $rootPath; ?>about.php">About</a>
+        <a href="<?php echo $rootPath; ?>contact.php">Contact</a>
      </div>
     <div class="auth-buttons">
         <?php if (isset($_SESSION['user_id'])): ?>
-            <?php if ($_SESSION['role'] === 'admin'): ?>
-                <a href="../admin/dashboard.php" class="nav-link">Admin Dashboard</a>
+            <?php if ($_SESSION['user_type'] === 'admin'): ?>
+                <a href="<?php echo $rootPath; ?>admin/dashboard.php" class="nav-link">Admin Dashboard</a>
             <?php else: ?>
-                <a href="./dashboard.php" class="nav-link">My Dashboard</a>
+                <a href="<?php echo $rootPath; ?>user/dashboard.php" class="nav-link">My Dashboard</a>
+                <a href="<?php echo $rootPath; ?>user/bookings.php" class="nav-link">My Bookings</a>
             <?php endif; ?>
-            <a href="../php/logout.php" class="btn-secondary">Logout</a>
+            <a href="<?php echo $rootPath; ?>php/logout.php" class="btn-secondary">Logout</a>
         <?php else: ?>
             <button id="loginBtn">Login</button>
             <button id="registerBtn">Register</button>
         <?php endif; ?>
     </div>
 </nav>
+
+<?php 
+// Include auth modals only if user is not logged in
+if (!isset($_SESSION['user_id'])) {
+    include $rootPath . 'includes/auth-modals.php';
+}
+?>
 
 <script>
     // Navbar scroll effect

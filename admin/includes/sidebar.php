@@ -4,29 +4,29 @@
         <h2>Admin</h2>
     </div>
     <nav class="admin-menu">
-        <a href="../admin/dashboard.php" class="menu-item" data-title="Dashboard">
+        <a href="dashboard.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : ''; ?>">
             <i class="fas fa-tachometer-alt"></i>
             Dashboard
         </a>
-        <a href="../admin/cars.php" class="menu-item" data-title="Cars">
+        <a href="cars.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) == 'cars.php' ? 'active' : ''; ?>">
             <i class="fas fa-car"></i>
             Cars
         </a>
-        <a href="../admin/bookings.php" class="menu-item" data-title="Bookings">
+        <a href="bookings.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) == 'bookings.php' ? 'active' : ''; ?>">
             <i class="fas fa-calendar-alt"></i>
             Bookings
         </a>
-        <a href="../admin/users.php" class="menu-item" data-title="Users">
+        <a href="users.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) == 'users.php' ? 'active' : ''; ?>">
             <i class="fas fa-users"></i>
             Users
         </a>
-        <a href="../admin/reports.php" class="menu-item" data-title="Reports">
-            <i class="fas fa-chart-bar"></i>
-            Reports
-        </a>
-        <a href="../admin/settings.php" class="menu-item" data-title="Settings">
+        <a href="settings.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : ''; ?>">
             <i class="fas fa-cog"></i>
             Settings
+        </a>
+        <a href="reports.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'active' : ''; ?>">
+            <i class="fas fa-chart-bar"></i>
+            Reports
         </a>
     </nav>
 </aside>

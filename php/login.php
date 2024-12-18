@@ -18,14 +18,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if ($result->num_rows == 1) {
             $user = $result->fetch_assoc();
             if (password_verify($password, $user['Password'])) {
+                // Debug logging
+                error_log('Login successful for email: ' . $email);
+                error_log('User role from DB: ' . $user['Role']);
+                
                 $_SESSION['user_id'] = $user['User_id'];
                 $_SESSION['user_name'] = $user['Fname'] . ' ' . $user['Lname'];
-                $_SESSION['role'] = strtolower($user['Role']); // Convert role to lowercase
+                $_SESSION['user_type'] = strtolower($user['Role']);
+                
+                // Debug logging
+                error_log('Session after login: ' . print_r($_SESSION, true));
                 
                 echo json_encode([
                     'success' => true,
                     'message' => 'Login successful',
-                    'role' => $_SESSION['role']
+                    'role' => strtolower($user['Role'])
                 ]);
                 exit;
             }
@@ -42,8 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         ]);
     }
     
-    //$stmt->close();
+    $stmt->close();
 }
 
-////$conn->close();
+$conn->close();
 ?>

@@ -9,6 +9,9 @@
     --gradient-end: #f5f6fa;
 }
 
+::-webkit-scrollbar{
+    display: none;
+}
 body {
     background: var(--gradient-start);
     background-image: 
@@ -179,10 +182,7 @@ body {
     padding: 20px;
 }
 
-::-webkit-scrollbar {
-    display: none;
-}
-.navbar {
+ /* .navbar {
     position: fixed;
     top: 0;
     left: 0;
@@ -194,7 +194,7 @@ body {
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     z-index: 1000;
-}
+}   */
 
 .user-dropdown {
     position: relative;
@@ -262,7 +262,6 @@ body {
     gap: 10px;
     align-items: center;
 }
-
 .navbar {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 249, 250, 0.9));
     backdrop-filter: blur(10px);
@@ -275,8 +274,7 @@ body {
     justify-content: space-between;
     align-items: center;
     box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
-}
-
+} 
 .navbar.scrolled {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 249, 250, 0.95));
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
@@ -307,7 +305,7 @@ body {
 
 .nav-links a.active {
     color: #0984e3;
-}
+} 
 
 #loginBtn {
     background: transparent;

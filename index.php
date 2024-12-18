@@ -1,6 +1,6 @@
-<?php
+<!-- <?php
 session_start();
-?>
+?> -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,7 +10,210 @@ session_start();
     <link rel="stylesheet" href="css/style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/index.css">
+    <link rel="icon" href="css/favicon.ico" type="image/x-icon">
 </head>
+<style>
+    .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 3rem 0;
+            padding-bottom: 3rem;
+        }
+
+        .pagination button {
+            padding: 0.8rem 1.2rem;
+            border: none;
+            background: white;
+            color: #0984e3;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .pagination button.active {
+            background: #0984e3;
+            color: white;
+        }
+
+        .pagination button:hover:not(.active) {
+            background: #f1f2f6;
+            transform: translateY(-2px);
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 4rem;
+        }
+
+        .loading-spinner i {
+            font-size: 2.5rem;
+            color: #0984e3;
+            animation: spin 1s linear infinite;
+        }
+
+    /* Featured Cars Section */
+    #featured-cars {
+        padding: 4rem 2rem;
+        background: #f8f9fa;
+    }
+
+    #featured-cars h2 {
+        text-align: center;
+        margin-bottom: 3rem;
+        color: #2d3436;
+        font-size: 2.5rem;
+        position: relative;
+    }
+
+    #featured-cars h2::after {
+        content: '';
+        position: absolute;
+        bottom: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 60px;
+        height: 4px;
+        background: #0984e3;
+        border-radius: 2px;
+    }
+
+    .cars-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .car-card {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 3px 15px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+    }
+
+    .car-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .car-image {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+    }
+
+    .car-details {
+        padding: 1.5rem;
+    }
+
+    .car-details h3 {
+        margin: 0 0 0.5rem 0;
+        color: #2d3436;
+        font-size: 1.4rem;
+    }
+
+    .car-type {
+        color: #0984e3;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+
+    .car-features {
+        display: flex;
+        gap: 1rem;
+        margin: 1rem 0;
+        flex-wrap: wrap;
+    }
+
+    .car-features span {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        color: #636e72;
+    }
+
+    .car-features i {
+        color: #0984e3;
+    }
+
+    .car-price {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #0984e3;
+        margin: 1rem 0;
+    }
+
+    .book-btn {
+        width: 100%;
+        padding: 0.8rem;
+        background: #0984e3;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: background 0.3s ease;
+        text-decoration: none;
+        display: block;
+        text-align: center;
+    }
+
+    .book-btn:hover {
+        background: #0773c5;
+    }
+
+    .loading-spinner {
+        text-align: center;
+        padding: 4rem;
+    }
+
+    .loading-spinner i {
+        font-size: 3rem;
+        color: #0984e3;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .no-cars-message {
+        text-align: center;
+        padding: 3rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .no-cars-message i {
+        margin-bottom: 1rem;
+    }
+
+    .no-cars-message p {
+        color: #636e72;
+        font-size: 1.1rem;
+    }
+
+    @media (max-width: 768px) {
+        #featured-cars {
+            padding: 3rem 1rem;
+        }
+
+        .cars-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .car-features {
+            justify-content: space-between;
+        }
+    }
+</style>
 <body>
     <nav class="navbar">
         <div class="logo">CarRent</div>
@@ -21,42 +224,51 @@ session_start();
             <a href="contact.php">Contact</a>
         </div>
         <div class="auth-buttons">
-            <?php if (!isset($_SESSION['user_id'])) { ?>
+            <?php 
+            // Get the current directory depth relative to root
+            $currentPath = $_SERVER['PHP_SELF'];
+            $rootPath = "";
+            if (strpos($currentPath, '/admin/') !== false || strpos($currentPath, '/user/') !== false) {
+                $rootPath = "../";
+            }
+            
+            if (!isset($_SESSION['user_type'])) { ?>
                 <button id="loginBtn">Login</button>
                 <button id="registerBtn">Register</button>
-            <?php } else { ?> 
+            <?php } else { ?>
                 <div class="user-dropdown">
                     <button class="dropdown-toggle">
                         <i class="fas fa-user-circle"></i>
-                        <span><?php echo htmlspecialchars($_SESSION['user_name']); ?></span>
                         <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="dropdown-menu">
-                        <?php if (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'customer') { ?>
-                            <a href="user/dashboard.php">
+                        <?php if ($_SESSION['user_type'] === 'customer') { ?>
+                            <a href="<?php echo $rootPath; ?>user/dashboard.php">
                                 <i class="fas fa-tachometer-alt"></i>
                                 My Dashboard
                             </a>
-                            <a href="user/profile.php">
+                            <a href="<?php echo $rootPath; ?>user/profile.php">
                                 <i class="fas fa-user-edit"></i>
                                 Edit Profile
                             </a>
-                            <a href="user/booking.php">
-                                <i class="fas fa-calendar-alt"></i>
+                            <a href="<?php echo $rootPath; ?>user/bookings.php" >
+                            <i class="fas fa-calendar-alt"></i>
                                 My Bookings
                             </a>
                             <div class="divider"></div>
-                            <a href="php/logout.php">
+                            <a href="<?php echo $rootPath; ?>php/logout.php">
                                 <i class="fas fa-sign-out-alt"></i>
                                 Logout
                             </a>
                         <?php } else { ?>
-                            <a href="admin/dashboard.php">
+                            <?php if (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'admin'): ?>
+                            <a href="<?php echo $rootPath; ?>admin/dashboard.php">
                                 <i class="fas fa-tachometer-alt"></i>
                                 Dashboard
                             </a>
+                            <?php endif; ?>
                             <div class="divider"></div>
-                            <a href="php/logout.php">
+                            <a href="<?php echo $rootPath; ?>php/logout.php">
                                 <i class="fas fa-sign-out-alt"></i>
                                 Logout
                             </a>
@@ -83,9 +295,17 @@ session_start();
 
         <section id="featured-cars">
             <h2>Featured Cars</h2>
-            <div class="car-grid" id="carGrid">
-                <!-- Cars will be loaded dynamically -->
-            </div>
+            <div class="loading-spinner" id="loadingSpinner">
+            <i class="fas fa-spinner"></i>
+        </div>
+
+        <div class="cars-grid" id="carsGrid">
+            <!-- Cars will be loaded dynamically -->
+        </div>
+
+        <div class="pagination" id="pagination">
+            <!-- Pagination will be added dynamically -->
+        </div>
         </section>
     </main>
 
@@ -128,7 +348,7 @@ session_start();
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <p>Don't have an account? <a href="#" class="switch-modal" data-target="registerModal">Sign Up</a></p>
+                    <p>Don't have an account? <a href=#registerModal class="switch-modal" data-target="registerModal">Sign Up</a></p>
                 </div>
             </form>
         </div>
@@ -196,33 +416,73 @@ session_start();
             </form>
         </div>
     </div>
+    <?php include 'includes/footer.php'; ?>
 
-    <footer>
-        <div class="footer-content">
-            <div class="footer-section">
-                <h3>About CarRent</h3>
-                <p>Your trusted partner in car rental services.</p>
-            </div>
-            <div class="footer-section">
-                <h3>Quick Links</h3>
-                <a href="cars.php">Available Cars</a>
-                <a href="about.php">About Us</a>
-                <a href="contact.php">Contact</a>
-            </div>
-            <div class="footer-section">
-                <h3>Contact Us</h3>
-                <p>Email: info@carrent.com</p>
-                <p>Phone: 054-155-1234</p>
-            </div>
-        </div>
-        <div class="footer-bottom">
-            <p>&copy; 2024 CarRent. All rights reserved.</p>
-        </div>
-    </footer>
-
-    <script src="js/script.js"></script>
+    <!-- <script src="js/script.js"></script> -->
     <script src="js/dropdown.js"></script>
     <script>
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const carsGrid = document.getElementById('carsGrid');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+
+            async function loadCars() {
+                loadingSpinner.style.display = 'block';
+                carsGrid.style.display = 'none';
+
+                try {
+                    const response = await fetch('php/get_featured_cars.php');
+                    const data = await response.json();
+                    
+                    carsGrid.innerHTML = '';
+
+                    if (data.length === 0) {
+                        carsGrid.innerHTML = `
+                            <div class="no-cars-message">
+                                <i class="fas fa-car" style="font-size: 3rem; color: #0984e3;"></i>
+                                <p>No featured cars available at the moment.</p>
+                            </div>
+                        `;
+                    } else {
+                        data.forEach(car => {
+                            const carCard = document.createElement('div');
+                            carCard.className = 'car-card';
+                            carCard.innerHTML = `
+                                <img src="${car.image}" alt="${car.name}" class="car-image">
+                                <div class="car-details">
+                                    <h3>${car.name}</h3>
+                                    <p class="car-type">${car.type || 'Sedan'}</p>
+                                    <p>${car.description}</p>
+                                    <div class="car-features">
+                                        <span><i class="fas fa-users"></i> 5 seats</span>
+                                        <span><i class="fas fa-gas-pump"></i> Gasoline</span>
+                                        <span><i class="fas fa-cog"></i> Automatic</span>
+                                    </div>
+                                    <div class="car-price">$${car.price}/day</div>
+                                    <a href="booking.php?car_id=${car.id}" class="book-btn">Book Now</a>
+                                </div>
+                            `;
+                            carsGrid.appendChild(carCard);
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    carsGrid.innerHTML = `
+                        <div class="no-cars-message">
+                            <i class="fas fa-exclamation-circle" style="font-size: 3rem; color: #e74c3c;"></i>
+                            <p>An error occurred while loading cars. Please try again later.</p>
+                        </div>
+                    `;
+                } finally {
+                    loadingSpinner.style.display = 'none';
+                    carsGrid.style.display = 'grid';
+                }
+            }
+
+            // Initial load
+            loadCars();
+        });
+
         // Navbar scroll effect
         window.addEventListener('scroll', function() {
             const navbar = document.querySelector('.navbar');
@@ -272,6 +532,65 @@ session_start();
         // Update return date min when pickup date changes
         document.getElementById('pickupDate').addEventListener('change', function() {
             document.getElementById('returnDate').min = this.value;
+        });
+
+        // Form submission handlers
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+
+            fetch('php/login.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Hide the modal
+                    loginModal.style.display = "none";
+                    
+                    // Redirect based on user role
+                    if (data.role === 'admin') {
+                        window.location.href = 'admin/dashboard.php';
+                    } else if (data.role === 'customer') {
+                        window.location.href = 'user/dashboard.php';
+                    } else {
+                        // Fallback to home page if role is undefined
+                        window.location.reload();
+                    }
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred during login. Please try again.');
+            });
+        });
+
+        document.getElementById('registerForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+
+            fetch('php/register.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Registration successful! Please login.');
+                    // Hide register modal and show login modal
+                    registerModal.style.display = "none";
+                    loginModal.style.display = "block";
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred during registration. Please try again.');
+            });
         });
 
         const userTrigger = document.querySelector('.user-trigger');

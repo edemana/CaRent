@@ -3,8 +3,8 @@ session_start();
 require_once '../php/config.php';
 
 // Check if user is logged in and is admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    header('Location: ../index.php');
+if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
+    header('Location: ../login.php');
     exit;
 }
 
@@ -17,28 +17,33 @@ $result = $conn->query($sql);
 $stats['total_cars'] = $result->fetch_assoc()['total'];
 
 // Available cars (cars that are not currently booked)
-$sql = "SELECT COUNT(*) as available 
+$sql = "SELECT COUNT(DISTINCT c.Vehicle_id) as available 
         FROM car c 
-        WHERE NOT EXISTS (
-            SELECT 1 FROM bookings b 
-            WHERE b.car_id = c.Vehicle_id 
-            AND b.status IN ('pending', 'active')
-        )";
+        LEFT JOIN bookings b ON c.Vehicle_id = b.car_id 
+        WHERE b.id IS NULL 
+        OR b.status IN ('cancelled', 'completed')
+        OR (b.status IN ('confirmed', 'pending') 
+            AND (b.return_date < CURDATE() 
+                OR b.pickup_date > CURDATE()))";
 $result = $conn->query($sql);
 $stats['available_cars'] = $result->fetch_assoc()['available'];
 
 // Cars by type
-$sql = "SELECT Type as type, COUNT(*) as count FROM car GROUP BY Type";
+$sql = "SELECT Type, COUNT(*) as count FROM car GROUP BY Type";
 $result = $conn->query($sql);
 $stats['cars_by_type'] = [];
 while ($row = $result->fetch_assoc()) {
-    $stats['cars_by_type'][$row['type']] = $row['count'];
+    $stats['cars_by_type'][$row['Type']] = $row['count'];
 }
 
 // Most rented cars
-$sql = "SELECT CONCAT(c.Make, ' ', c.Model) as name, COUNT(b.id) as rental_count 
+$sql = "SELECT 
+            c.Vehicle_id,
+            CONCAT(c.Make, ' ', c.Model) as name, 
+            COUNT(b.id) as rental_count 
         FROM car c 
         LEFT JOIN bookings b ON c.Vehicle_id = b.car_id 
+        WHERE b.status NOT IN ('cancelled')
         GROUP BY c.Vehicle_id, c.Make, c.Model 
         ORDER BY rental_count DESC 
         LIMIT 5";
@@ -49,7 +54,7 @@ while ($row = $result->fetch_assoc()) {
 }
 
 // Average rental price
-$sql = "SELECT AVG(RentalPrice) as avg_price FROM car";
+$sql = "SELECT AVG(RentalPrice) as avg_price FROM car WHERE RentalPrice > 0";
 $result = $conn->query($sql);
 $stats['avg_price'] = number_format($result->fetch_assoc()['avg_price'], 2);
 ?>
@@ -72,6 +77,7 @@ $stats['avg_price'] = number_format($result->fetch_assoc()['avg_price'], 2);
             --light-color: #ffffff;
             --gradient-start: #e8f4f8;
             --gradient-end: #f5f6fa;
+            --sidebar-width: 250px;
         }
 
         body {
@@ -85,9 +91,40 @@ $stats['avg_price'] = number_format($result->fetch_assoc()['avg_price'], 2);
         }
 
         .admin-container {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 249, 250, 0.9));
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
+            display: flex;
+            min-height: 100vh;
+            background-color: #f8f9fa;
+        }
+
+        .admin-sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 2rem;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+
+        .admin-main {
+            flex: 1;
+            padding: 2rem;
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            background-color: #f8f9fa;
+            overflow-x: hidden;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #eee;
         }
 
         .car-card {
@@ -127,12 +164,12 @@ $stats['avg_price'] = number_format($result->fetch_assoc()['avg_price'], 2);
         }
 
         .table-container {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 249, 250, 0.95));
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            margin: 20px 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
+            padding: 1.5rem;
+            margin-top: 2rem;
+            overflow-x: auto;
         }
 
         .table {
@@ -494,8 +531,9 @@ $stats['avg_price'] = number_format($result->fetch_assoc()['avg_price'], 2);
 </head>
 <body>
     <div class="admin-container">
-        <?php include 'includes/sidebar.php'; ?>
-
+        <div class="admin-sidebar">
+            <?php include 'includes/sidebar.php'; ?>
+        </div>
         <main class="admin-main">
             <header class="admin-header">
 
@@ -595,12 +633,16 @@ $stats['avg_price'] = number_format($result->fetch_assoc()['avg_price'], 2);
                 <div class="modal-content">
                     <span class="close">&times;</span>
                     <h2 id="modalTitle">Add New Car</h2>
-                    <form id="carForm" class="admin-form">
+                    <form id="carForm" class="admin-form" enctype="multipart/form-data">
                         <input type="hidden" id="carId" name="carId">
                         <div class="form-grid">
                             <div class="form-group">
-                                <label for="name">Car Name</label>
-                                <input type="text" id="name" name="name" required>
+                                <label for="name">Car Name (Make Model)</label>
+                                <input type="text" id="name" name="name" placeholder="e.g., Toyota Camry" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="year">Year</label>
+                                <input type="number" id="year" name="year" min="1900" max="2024" value="2024" required>
                             </div>
                             <div class="form-group">
                                 <label for="type">Car Type</label>
@@ -610,14 +652,6 @@ $stats['avg_price'] = number_format($result->fetch_assoc()['avg_price'], 2);
                                     <option value="luxury">Luxury</option>
                                     <option value="sports">Sports</option>
                                 </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="price">Price per Day ($)</label>
-                                <input type="number" id="price" name="price" min="0" step="0.01" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="seats">Number of Seats</label>
-                                <input type="number" id="seats" name="seats" min="1" required>
                             </div>
                             <div class="form-group">
                                 <label for="transmission">Transmission</label>
@@ -631,27 +665,58 @@ $stats['avg_price'] = number_format($result->fetch_assoc()['avg_price'], 2);
                                 <select id="fuel_type" name="fuel_type" required>
                                     <option value="petrol">Petrol</option>
                                     <option value="diesel">Diesel</option>
-                                    <option value="electric">Electric</option>
                                     <option value="hybrid">Hybrid</option>
+                                    <option value="electric">Electric</option>
                                 </select>
                             </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="description">Description</label>
-                            <textarea id="description" name="description" required></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label for="image">Car Image</label>
-                            <input type="file" id="image" name="image" accept="image/*">
-                        </div>
-                        <div class="form-group">
-                            <label>
-                                <input type="checkbox" id="featured" name="featured">
-                                Featured Car
-                            </label>
+                            <div class="form-group">
+                                <label for="price">Price per Day ($)</label>
+                                <input type="number" id="price" name="price" min="0" step="0.01" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="engine_size">Engine Size</label>
+                                <input type="text" id="engine_size" name="engine_size" placeholder="e.g., 2.5L">
+                            </div>
+                            <div class="form-group">
+                                <label for="fuel_consumption">Fuel Consumption (L/100km)</label>
+                                <input type="number" id="fuel_consumption" name="fuel_consumption" min="0" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label for="mileage">Mileage</label>
+                                <input type="number" id="mileage" name="mileage" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="rental_company">Rental Company</label>
+                                <input type="text" id="rental_company" name="rental_company" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="address">Address</label>
+                                <input type="text" id="address" name="address" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="accessories">Accessories</label>
+                                <input type="text" id="accessories" name="accessories" placeholder="Comma-separated list">
+                            </div>
+                            <div class="form-group">
+                                <label for="functionalities">Functionalities</label>
+                                <input type="text" id="functionalities" name="functionalities" placeholder="Comma-separated list">
+                            </div>
+                            <div class="form-group">
+                                <label for="rental_conditions">Rental Conditions</label>
+                                <textarea id="rental_conditions" name="rental_conditions" rows="3"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="description">Description</label>
+                                <textarea id="description" name="description" rows="3" required></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="image">Car Image</label>
+                                <input type="file" id="image" name="image" accept="image/*">
+                                <div id="currentImage"></div>
+                            </div>
                         </div>
                         <div class="form-actions">
-                            <button type="button" class="btn-secondary" onclick="closeCarModal()">Cancel</button>
+                            <button type="button" onclick="closeCarModal()" class="btn-secondary">Cancel</button>
                             <button type="submit" class="btn-primary">Save Car</button>
                         </div>
                     </form>
@@ -743,19 +808,37 @@ $stats['avg_price'] = number_format($result->fetch_assoc()['avg_price'], 2);
                 const car = await response.json();
                 
                 document.getElementById('modalTitle').textContent = 'Edit Car';
-                document.getElementById('carId').value = car.id;
-                document.getElementById('name').value = car.name;
-                document.getElementById('type').value = car.type;
-                document.getElementById('price').value = car.price;
-                document.getElementById('seats').value = car.seats;
-                document.getElementById('transmission').value = car.transmission;
-                document.getElementById('fuel_type').value = car.fuel_type;
-                document.getElementById('description').value = car.description;
-                document.getElementById('featured').checked = car.featured == 1;
+                document.getElementById('carId').value = car.Vehicle_id;
+                document.getElementById('name').value = `${car.Make} ${car.Model}`;
+                document.getElementById('year').value = car.Year;
+                document.getElementById('type').value = car.Type;
+                document.getElementById('transmission').value = car.Transmission;
+                document.getElementById('fuel_type').value = car.FuelType;
+                document.getElementById('price').value = car.RentalPrice;
+                document.getElementById('engine_size').value = car.EngineSize;
+                document.getElementById('fuel_consumption').value = car.FuelConsumption;
+                document.getElementById('mileage').value = car.Mileage;
+                document.getElementById('rental_company').value = car.RentalCompany;
+                document.getElementById('address').value = car.Address;
+                document.getElementById('description').value = car.Description;
+                document.getElementById('rental_conditions').value = car.RentalConditions;
+                
+                // Handle JSON arrays
+                document.getElementById('accessories').value = car.Accessories ? JSON.parse(car.Accessories).join(', ') : '';
+                document.getElementById('functionalities').value = car.Functionalities ? JSON.parse(car.Functionalities).join(', ') : '';
+                
+                // Show current image if exists
+                const currentImageDiv = document.getElementById('currentImage');
+                if (car.Img) {
+                    currentImageDiv.innerHTML = `<img src="${car.Img}" alt="Current car image" style="max-width: 200px; margin-top: 10px;">`;
+                } else {
+                    currentImageDiv.innerHTML = '';
+                }
                 
                 document.getElementById('carModal').style.display = 'block';
             } catch (error) {
                 console.error('Error:', error);
+                alert('Failed to load car details. Please try again.');
             }
         }
 

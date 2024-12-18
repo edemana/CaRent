@@ -1,0 +1,78 @@
+@startuml CarRent ER Diagram
+
+!define table(x) entity x << (T,#FFAAAA) >>
+!define primary_key(x) <b><color:#b8861b><&key></color> x</b>
+!define foreign_key(x) <color:#aaaaaa><&key></color> x
+
+table(users) {
+  primary_key(User_id) : INT
+  --
+  Fname : VARCHAR(50)
+  Lname : VARCHAR(50)
+  Email : VARCHAR(100)
+  Password : VARCHAR(255)
+  Phone : VARCHAR(20)
+  Image : VARCHAR(255)
+  User_type : ENUM
+  Created_at : TIMESTAMP
+}
+
+table(car) {
+  primary_key(Vehicle_id) : INT
+  --
+  Model : VARCHAR(100)
+  Description : TEXT
+  RentalPrice : DECIMAL
+  Img : VARCHAR(255)
+  Status : ENUM
+  foreign_key(Type_id) : INT
+  Created_at : TIMESTAMP
+}
+
+table(cartype) {
+  primary_key(Type_id) : INT
+  --
+  Name : VARCHAR(50)
+  Description : TEXT
+}
+
+table(bookings) {
+  primary_key(Booking_id) : INT
+  --
+  foreign_key(User_id) : INT
+  foreign_key(Vehicle_id) : INT
+  Start_date : DATE
+  End_date : DATE
+  Status : ENUM
+  Total_amount : DECIMAL
+  Created_at : TIMESTAMP
+}
+
+table(payments) {
+  primary_key(Payment_id) : INT
+  --
+  foreign_key(Booking_id) : INT
+  Amount : DECIMAL
+  Payment_date : TIMESTAMP
+  Payment_status : ENUM
+  Payment_method : VARCHAR(50)
+}
+
+table(reviews) {
+  primary_key(Review_id) : INT
+  --
+  foreign_key(User_id) : INT
+  foreign_key(Vehicle_id) : INT
+  Rating : INT
+  Comment : TEXT
+  Created_at : TIMESTAMP
+}
+
+users ||--o{ bookings
+users ||--o{ reviews
+car ||--o{ bookings
+car ||--o{ reviews
+cartype ||--o{ car
+bookings ||--o{ payments
+
+@enduml

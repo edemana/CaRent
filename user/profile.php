@@ -70,21 +70,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($result->num_rows > 0) {
                 $msg = '<div class="alert alert-danger">Email already exists.</div>';
             } else {
-                // Update profile with image
-                $stmt = $conn->prepare("UPDATE users SET Name = ?, Email = ?, Phone = ?, Address = ?, Profile_image = ? WHERE User_id = ?");
-                $stmt->bind_param("sssssi", $name, $email, $phone, $address, $profile_image, $userId);
-                
-                if ($stmt->execute()) {
-                    $_SESSION['user_name'] = $name; // Update session name
-                    $msg = '<div class="alert alert-success">Profile updated successfully!</div>';
-                    // Refresh user data
-                    $stmt = $conn->prepare("SELECT * FROM users WHERE User_id = ?");
-                    $stmt->bind_param("i", $userId);
-                    $stmt->execute();
-                    $result = $stmt->get_result();
-                    $user = $result->fetch_assoc();
-                } else {
-                    $msg = '<div class="alert alert-danger">Error updating profile. Please try again.</div>';
+                try {
+                    // Update profile with image
+                    $stmt = $conn->prepare("UPDATE users SET Fname = ?, Email = ?, Phone = ?, Image = ? WHERE User_id = ?");
+                    $stmt->bind_param("ssssi", $name, $email, $phone, $profile_image, $userId);
+                    
+                    if ($stmt->execute()) {
+                        $_SESSION['user_name'] = $name; // Update session name
+                        $msg = '<div class="alert alert-success">Profile updated successfully!</div>';
+                        // Refresh user data
+                        $stmt = $conn->prepare("SELECT * FROM users WHERE User_id = ?");
+                        $stmt->bind_param("i", $userId);
+                        $stmt->execute();
+                        $result = $stmt->get_result();
+                        $user = $result->fetch_assoc();
+                    } else {
+                        $msg = '<div class="alert alert-danger">Error updating profile. Please try again.</div>';
+                    }
+                } catch (Exception $e) {
+                    $msg = '<div class="alert alert-danger">An error occurred: ' . $e->getMessage() . '</div>';
                 }
             }
         }
@@ -277,7 +281,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <form class="profile-form" method="POST" action="" enctype="multipart/form-data">
             <div class="form-group">
                 <label for="name">Full Name</label>
-                <input type="text" id="name" name="name" value="<?php echo htmlspecialchars($user['Name'] ?? ''); ?>" required>
+                <input type="text" id="name" name="name" value="<?php echo htmlspecialchars($user['Firstname'] ?? ''); ?>" required>
             </div>
 
             <div class="form-group">

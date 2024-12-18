@@ -3,13 +3,13 @@ session_start();
 require_once '../php/config.php';
 
 // Check if user is logged in and is admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
     header('Location: ../index.php');
     exit;
 }
 
 // Get total number of users
-$stmt = $conn->prepare("SELECT COUNT(*) as total_users FROM users WHERE role = 'user'");
+$stmt = $conn->prepare("SELECT COUNT(*) as total_users FROM users WHERE role = 'customer'");
 $stmt->execute();
 $result = $stmt->get_result();
 $totalUsers = $result->fetch_assoc()['total_users'];

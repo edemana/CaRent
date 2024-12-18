@@ -9,6 +9,10 @@
     --gradient-end: #f5f6fa;
 }
 
+::-webkit-scrollbar{
+    display: none;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -233,7 +237,7 @@ footer::before {
     pointer-events: none;
 }
 
-/* Navbar Styles */
+/* Navbar Styles
 .navbar {
     display: flex;
     justify-content: space-between;
@@ -282,7 +286,7 @@ footer::before {
 #registerBtn {
     background-color: var(--primary-color);
     color: white;
-}
+} */
 
 /* Featured Cars Section */
 #featured-cars {

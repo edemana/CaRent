@@ -3,7 +3,7 @@ session_start();
 require_once '../config.php';
 
 // Check if user is admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
     http_response_code(403);
     echo json_encode(['error' => 'Unauthorized']);
     exit;
@@ -14,7 +14,7 @@ header('Content-Type: application/json');
 if (isset($_GET['id'])) {
     $car_id = (int)$_GET['id'];
     
-    $sql = "SELECT * FROM cars WHERE id = ?";
+    $sql = "SELECT * FROM car WHERE Vehicle_id = ?";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $car_id);
     $stmt->execute();

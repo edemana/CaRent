@@ -3,7 +3,7 @@ session_start();
 require_once '../php/config.php';
 
 // Check if user is logged in and has customer role
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || ($_SESSION['role'] !== 'user' && $_SESSION['role'] !== 'customer')) {
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'customer') {
     header('Location: ../index.php');
     exit;
 }
@@ -167,47 +167,41 @@ $bookings = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         }
 
         .activity-item {
-            padding: 1rem;
-            border-radius: 10px;
-            background: #f8f9fa;
-            transition: transform 0.3s ease;
-            border-left: 4px solid #0984e3;
             display: flex;
-            gap: 1rem;
-            align-items: center;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1rem;
+            transition: transform 0.3s ease;
         }
 
         .activity-item:hover {
-            transform: translateX(5px);
+            transform: translateY(-2px);
         }
 
-        .activity-item .car-image {
-            width: 100px;
-            height: 70px;
+        .activity-item img {
+            width: 120px;
+            height: 120px;
             object-fit: cover;
             border-radius: 8px;
+            flex-shrink: 0;
         }
 
-        .activity-item .activity-content {
+        .activity-content {
             flex: 1;
         }
 
-        .activity-item h3 {
-            font-size: 1.1rem;
+        .activity-content h3 {
             margin: 0 0 0.5rem 0;
             color: #2d3436;
+            font-size: 1.2rem;
         }
 
-        .activity-item p {
-            margin: 0;
+        .activity-content p {
+            margin: 0.3rem 0;
             color: #636e72;
-            font-size: 0.9rem;
-        }
-
-        .activity-item .activity-date {
-            font-size: 0.8rem;
-            color: #0984e3;
-            margin-top: 0.5rem;
         }
 
         .section-title {
@@ -256,6 +250,16 @@ $bookings = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             .action-button {
                 width: 100%;
                 justify-content: center;
+            }
+
+            .activity-item {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .activity-item img {
+                width: 100%;
+                height: 200px;
             }
         }
     </style>
@@ -310,7 +314,7 @@ $bookings = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             <div class="activity-list">
                 <?php foreach ($bookings as $booking): ?>
                     <div class="activity-item">
-                        <img src="data:image/jpeg;base64,<?php echo base64_encode($booking['car_image']); ?>" alt="<?php echo htmlspecialchars($booking['car_name']); ?>" class="car-image">
+                        <img src="<?php echo htmlspecialchars($booking['car_image']); ?>" alt="<?php echo htmlspecialchars($booking['car_name']); ?>">
                         <div class="activity-content">
                             <h3><?php echo htmlspecialchars($booking['car_name']); ?></h3>
                             <p>Pickup: <?php echo date('M d, Y', strtotime($booking['pickup_date'])); ?></p>

@@ -2,75 +2,38 @@
 session_start();
 require_once '../php/config.php';
 
-// Check if user is logged in and has user role
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
+// Check if user is logged in
+if (!isset($_SESSION['user_id'])) {
     header('Location: ../index.php');
     exit;
 }
 
-// Get car details if car_id is provided
+// Get car details
 $car_id = isset($_GET['car_id']) ? (int)$_GET['car_id'] : 0;
 $car = null;
 
 if ($car_id > 0) {
-    $sql = "SELECT 
-            Vehicle_id,
+    $sql = "SELECT Vehicle_id as id, 
             CONCAT(Make, ' ', Model) as name,
-            Description,
-            RentalPrice,
+            Description as description,
+            RentalPrice as price,
             Img as image,
-            Type,
-            FuelConsumption,
-            EngineSize,
-            Mileage
-        FROM car 
-        WHERE Vehicle_id = ?";
-    
+            Type as type,
+            FuelConsumption as fuel_consumption,
+            EngineSize as engine_size,
+            Mileage as mileage
+            FROM car 
+            WHERE Vehicle_id = ?";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $car_id);
     $stmt->execute();
-    $car = $stmt->get_result()->fetch_assoc();
+    $result = $stmt->get_result();
+    $car = $result->fetch_assoc();
 }
 
-// Handle booking submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $start_date = $_POST['start_date'];
-    $end_date = $_POST['end_date'];
-    $car_id = $_POST['car_id'];
-    $user_id = $_SESSION['user_id'];
-
-    // Check if car is available for the selected dates
-    $sql = "SELECT COUNT(*) as count 
-            FROM availability 
-            WHERE Vehicle_id = ? 
-            AND (
-                (Available_start BETWEEN ? AND ?) OR
-                (Available_end BETWEEN ? AND ?) OR
-                (Available_start <= ? AND Available_end >= ?)
-            )";
-    
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("issssss", $car_id, $start_date, $end_date, $start_date, $end_date, $start_date, $end_date);
-    $stmt->execute();
-    $result = $stmt->get_result()->fetch_assoc();
-
-    if ($result['count'] == 0) {
-        // Car is available, create booking
-        $sql = "INSERT INTO availability (Vehicle_id, User_id, Available_start, Available_end) 
-                VALUES (?, ?, ?, ?)";
-        
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("iiss", $car_id, $user_id, $start_date, $end_date);
-        
-        if ($stmt->execute()) {
-            header('Location: dashboard.php?success=1');
-            exit;
-        } else {
-            $error = "Failed to create booking. Please try again.";
-        }
-    } else {
-        $error = "Car is not available for the selected dates.";
-    }
+if (!$car) {
+    header('Location: ../index.php');
+    exit;
 }
 ?>
 <!DOCTYPE html>
@@ -78,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Book a Car - CarRent</title>
+    <title>Book Car - CarRent</title>
     <link rel="stylesheet" href="../css/style.css">
     <style>
         .booking-container {
@@ -163,89 +126,97 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
     <?php include '../includes/header.php'; ?>
 
-    <main class="booking-page">
-        <div class="container">
-            <?php if (isset($error)): ?>
-                <div class="alert alert-error"><?php echo $error; ?></div>
-            <?php endif; ?>
-
-            <?php if ($car): ?>
-                <div class="car-details">
-                    <img src="<?php echo htmlspecialchars($car['image']); ?>" alt="<?php echo htmlspecialchars($car['name']); ?>" class="car-image">
-                    <div class="car-info">
-                        <h2><?php echo htmlspecialchars($car['name']); ?></h2>
-                        <p class="description"><?php echo htmlspecialchars($car['Description']); ?></p>
-                        <div class="features">
-                            <div class="feature">
-                                <i class="fas fa-car"></i>
-                                <span>Type: <?php echo htmlspecialchars($car['Type']); ?></span>
-                            </div>
-                            <div class="feature">
-                                <i class="fas fa-gas-pump"></i>
-                                <span>Fuel Consumption: <?php echo htmlspecialchars($car['FuelConsumption']); ?></span>
-                            </div>
-                            <div class="feature">
-                                <i class="fas fa-cog"></i>
-                                <span>Engine: <?php echo htmlspecialchars($car['EngineSize']); ?></span>
-                            </div>
-                            <div class="feature">
-                                <i class="fas fa-road"></i>
-                                <span>Mileage: <?php echo number_format($car['Mileage']); ?> km</span>
-                            </div>
-                        </div>
-                        <div class="price">
-                            <span class="amount">$<?php echo number_format($car['RentalPrice'], 2); ?></span>
-                            <span class="period">per day</span>
-                        </div>
-                    </div>
+    <div class="booking-container">
+        <h2>Book Your Car</h2>
+        
+        <div class="car-summary">
+            <img src="<?php echo htmlspecialchars($car['image']); ?>" alt="<?php echo htmlspecialchars($car['name']); ?>">
+            <div class="car-info">
+                <h3><?php echo htmlspecialchars($car['name']); ?></h3>
+                <p><?php echo htmlspecialchars($car['description']); ?></p>
+                <p class="car-price">$<?php echo htmlspecialchars($car['price']); ?>/day</p>
+                <div class="car-features">
+                    <p><strong>Type:</strong> <?php echo htmlspecialchars($car['type']); ?></p>
+                    <p><strong>Fuel Consumption:</strong> <?php echo htmlspecialchars($car['fuel_consumption']); ?></p>
+                    <p><strong>Engine Size:</strong> <?php echo htmlspecialchars($car['engine_size']); ?></p>
+                    <p><strong>Mileage:</strong> <?php echo htmlspecialchars($car['mileage']); ?> km</p>
                 </div>
-
-                <form method="POST" class="booking-form">
-                    <input type="hidden" name="car_id" value="<?php echo $car['Vehicle_id']; ?>">
-                    
-                    <div class="form-group">
-                        <label for="start_date">Pickup Date</label>
-                        <input type="date" id="start_date" name="start_date" required min="<?php echo date('Y-m-d'); ?>">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="end_date">Return Date</label>
-                        <input type="date" id="end_date" name="end_date" required min="<?php echo date('Y-m-d'); ?>">
-                    </div>
-
-                    <button type="submit" class="btn-primary">Book Now</button>
-                </form>
-            <?php else: ?>
-                <div class="error-message">
-                    <h2>Car Not Found</h2>
-                    <p>The requested car could not be found. Please try again.</p>
-                    <a href="../cars.php" class="btn-primary">View All Cars</a>
-                </div>
-            <?php endif; ?>
+            </div>
         </div>
-    </main>
+
+        <form id="bookingForm" class="booking-form">
+            <input type="hidden" name="car_id" value="<?php echo $car_id; ?>">
+            <div class="form-group">
+                <label for="pickup_date">Pickup Date</label>
+                <input type="date" id="pickup_date" name="pickup_date" required min="<?php echo date('Y-m-d'); ?>">
+            </div>
+            <div class="form-group">
+                <label for="return_date">Return Date</label>
+                <input type="date" id="return_date" name="return_date" required min="<?php echo date('Y-m-d'); ?>">
+            </div>
+            <div class="form-group">
+                <label for="pickup_location">Pickup Location</label>
+                <input type="text" id="pickup_location" name="pickup_location" required placeholder="Enter pickup location">
+            </div>
+            <div class="total-price">
+                Total: $<span id="totalPrice">0</span>
+            </div>
+            <button type="submit" class="book-btn">Confirm Booking</button>
+        </form>
+    </div>
 
     <?php include '../includes/footer.php'; ?>
 
     <script>
-        // Validate dates
-        document.getElementById('end_date').addEventListener('change', function() {
-            const startDate = document.getElementById('start_date').value;
-            const endDate = this.value;
-            
-            if (startDate && endDate && startDate > endDate) {
-                alert('Return date must be after pickup date');
-                this.value = '';
-            }
-        });
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('bookingForm');
+            const pickupDate = document.getElementById('pickup_date');
+            const returnDate = document.getElementById('return_date');
+            const totalPrice = document.getElementById('totalPrice');
+            const pricePerDay = <?php echo $car['price']; ?>;
 
-        document.getElementById('start_date').addEventListener('change', function() {
-            const endDate = document.getElementById('end_date');
-            endDate.min = this.value;
-            
-            if (endDate.value && endDate.value < this.value) {
-                endDate.value = '';
+            // Set minimum date to today
+            const today = new Date().toISOString().split('T')[0];
+            pickupDate.min = today;
+            returnDate.min = today;
+
+            // Calculate total price
+            function calculateTotal() {
+                if (pickupDate.value && returnDate.value) {
+                    const start = new Date(pickupDate.value);
+                    const end = new Date(returnDate.value);
+                    const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+                    if (days > 0) {
+                        totalPrice.textContent = (days * pricePerDay).toFixed(2);
+                    }
+                }
             }
+
+            pickupDate.addEventListener('change', calculateTotal);
+            returnDate.addEventListener('change', calculateTotal);
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(form);
+
+                try {
+                    const response = await fetch('../php/process_booking.php', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        alert('Booking successful!');
+                        window.location.href = 'dashboard.php';
+                    } else {
+                        alert(data.message || 'Booking failed. Please try again.');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('An error occurred. Please try again.');
+                }
+            });
         });
     </script>
 </body>
